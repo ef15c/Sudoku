@@ -192,7 +192,7 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 		if (cr) {
 			/* Il y a une erreur */
 			st->table[minLigne][minColonne] = 0;
-			free(minTryVect);
+			free(tabTryVect);
 			return cr;
 		}
 	}

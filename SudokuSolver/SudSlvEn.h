@@ -63,8 +63,12 @@ extern "C" {
 	   st pointe sur la structure contenant la solution,
 	   nbEssais indique le nombre de symboles qui ont été essayés depuis le début de
 		 la résolution,
-	   param contien la valeur fournie par le programme appelant lors de l'appel de
+	   param contient la valeur fournie par le programme appelant lors de l'appel de
 		   la fonction solveSudoku
+		
+		Valeur de retour : la fonction peut retourner 0 si elle souhaite poursuivre
+							la recherche de solution ou une valeur différente de 0
+							si la recherche doit s'arrêter là.
 	*/
 	typedef int __stdcall SolvedActionFunction(PtSudokuTable st, int nbEssais,
 		void* param);
