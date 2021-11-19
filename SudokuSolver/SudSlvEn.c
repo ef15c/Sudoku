@@ -1,5 +1,6 @@
 #include "SudSlvEn.h"
 #include <windows.h>
+#include <process.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -130,6 +131,17 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall getSudokuSymbol(PtSudokuTable st,
 	return st->table[ligne][colonne];
 }
 
+HANDLE hNbTreadsSemaphore;
+int nbCPU;
+
+typedef struct THREAD_PARAM {
+	PtSudokuTable st;
+	PtSolvedActionFunction saf;
+	int cr;
+} threadParam, * ptThreadParam;
+
+static unsigned __stdcall slvSudThreadProc(void* param);
+
 static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	int* pnbe, void* param, int maxTry)
 {
@@ -140,6 +152,9 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	int* tryVect;
 	int* minTryVect;
 
+	HANDLE* threads;
+	int nbUsedThreads;
+
 	if (maxTry > 0 && *pnbe > maxTry)
 		return -2;
 
@@ -149,6 +164,13 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 
 	tryVect = tabTryVect;
 	minTryVect = tabTryVect + (st->largeur * st->hauteur);
+
+	threads = malloc(nbCPU * sizeof(HANDLE));
+	if (!threads) {
+		free(tabTryVect);
+		return -1;
+	}
+
 
 	/* On recherche les cas pour lesquelles le nombre de possibilités est
 	   minimal. S'il y en a plusieurs, on choisit la première */
@@ -185,19 +207,60 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	/* Il reste des symboles à placer dans la table, donc on essaie toutes
 	   les combinaisons restantes */
 
+	nbUsedThreads = 0;
 	for (s = 0; s < minNbPos; s++) {
-		st->table[minLigne][minColonne] = minTryVect[s];
-		(*pnbe)++;
-		cr = slvSud(st, saf, pnbe, param, maxTry);
-		if (cr) {
-			/* Il y a une erreur */
+		/* On tente d'allouer un nouveau thead, dans la limite des CPU disponibles dans la machine */
+		if (WaitForSingleObject(hNbTreadsSemaphore, 0) == WAIT_OBJECT_0) {
+			/* On peut allouer un nouveau thread */
+
+			/* Faire une copie du sudoku*/
+			PtSudokuTable newSt = newSudokuTable(st->largeur, st->hauteur);
+			if (!newSt) {
+				free(tabTryVect);
+				return -1;
+			}
+
+			memcpy(newSt->table, st->table, sizeof(int) * st->largeur * st->hauteur);
+			/* On applique la valeur à tester */
+			newSt->table[minLigne][minColonne] = minTryVect[s];
+
+			/* On remplit une structure de données pour passer les arguments au thread */
+			threadParam param;
+			param.st = newSt;
+			param.saf = saf;
+
+			/* On crée le thread */
+			threads[nbUsedThreads] = (HANDLE) _beginthreadex(NULL, 0, slvSudThreadProc, (void *) &param, 0, NULL);
+			if (!threads[nbUsedThreads]) {
+				free(tabTryVect);
+				return -1;
+			}
+			nbUsedThreads++;
+		} else {
+			// Plus de threads disponibles, on effectue le travail dans ce thread */
+
+			st->table[minLigne][minColonne] = minTryVect[s];
+			(*pnbe)++;
+			cr = slvSud(st, saf, pnbe, param, maxTry);
+			if (cr) {
+				/* Il y a une erreur */
+				st->table[minLigne][minColonne] = 0;
+				free(tabTryVect);
+				return cr;
+				/* TODO : provoquerla fin des éventuels threads lancés */
+			}
 			st->table[minLigne][minColonne] = 0;
-			free(tabTryVect);
-			return cr;
+			/* TODO : attendre la fin des éventuels threads lancés */
 		}
 	}
-	st->table[minLigne][minColonne] = 0;
+	/* TODO : attendre la fin des éventuels threads lancés */
 	free(tabTryVect);
+	return 0;
+}
+
+static unsigned __stdcall slvSudThreadProc(void* param)
+{
+	/* TODO */
 	return 0;
 }
 
@@ -209,8 +272,22 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	int nbe = 0;
 	int cr;
 
+	SYSTEM_INFO sysinfo;
+
+	GetSystemInfo(&sysinfo);
+	nbCPU = sysinfo.dwNumberOfProcessors-1; /* On retire 1 processeur, car il y a déjà un thread en cours */
+
+//	fprintf(stderr, "%d coeurs\n", nbCPU);
+
+	hNbTreadsSemaphore = CreateSemaphore(NULL, nbCPU, nbCPU, NULL);
+	if (!hNbTreadsSemaphore) {
+		return -1;
+	}
+
+
 	cr = slvSud(st, saf, &nbe, param, maxTry);
 
+	CloseHandle(hNbTreadsSemaphore);
 	return cr;
 }
 
