@@ -339,13 +339,18 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	SYSTEM_INFO sysinfo;
 
 	GetSystemInfo(&sysinfo);
+// Pour test
+//	nbCPU = 0;
 	nbCPU = sysinfo.dwNumberOfProcessors-1; /* On retire 1 processeur, car il y a déjà un thread en cours */
+
 
 //	fprintf(stderr, "%d coeurs\n", nbCPU);
 
-	hNbTreadsSemaphore = CreateSemaphore(NULL, nbCPU, nbCPU, NULL);
-	if (!hNbTreadsSemaphore) {
-		return -1;
+	if (nbCPU > 0) {
+		hNbTreadsSemaphore = CreateSemaphore(NULL, nbCPU, nbCPU, NULL);
+		if (!hNbTreadsSemaphore) {
+			return -1;
+		}
 	}
 
 
