@@ -137,10 +137,19 @@ int nbCPU;
 typedef struct THREAD_PARAM {
 	PtSudokuTable st;
 	PtSolvedActionFunction saf;
+	int nbe;
+	void* uparam;
+	int maxTry;
 	int cr;
 } threadParam, * ptThreadParam;
 
 static unsigned __stdcall slvSudThreadProc(void* param);
+
+int waitForThreadsTermination(int nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
+{
+	/* TODO */
+	return 0;
+}
 
 static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	int* pnbe, void* param, int maxTry)
@@ -151,9 +160,12 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	int* tabTryVect;
 	int* tryVect;
 	int* minTryVect;
+	int tix;
 
 	HANDLE* threads;
 	int nbUsedThreads;
+
+	ptThreadParam tparam;
 
 	if (maxTry > 0 && *pnbe > maxTry)
 		return -2;
@@ -168,6 +180,13 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	threads = malloc(nbCPU * sizeof(HANDLE));
 	if (!threads) {
 		free(tabTryVect);
+		return -1;
+	}
+
+	tparam = malloc(nbCPU * sizeof(threadParam));
+	if (!tparam) {
+		free(tabTryVect);
+		free(threads);
 		return -1;
 	}
 
@@ -207,6 +226,7 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	/* Il reste des symboles à placer dans la table, donc on essaie toutes
 	   les combinaisons restantes */
 
+	cr = 0;
 	nbUsedThreads = 0;
 	for (s = 0; s < minNbPos; s++) {
 		/* On tente d'allouer un nouveau thead, dans la limite des CPU disponibles dans la machine */
@@ -225,14 +245,17 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 			newSt->table[minLigne][minColonne] = minTryVect[s];
 
 			/* On remplit une structure de données pour passer les arguments au thread */
-			threadParam param;
-			param.st = newSt;
-			param.saf = saf;
+			tparam[nbUsedThreads].st = newSt;
+			tparam[nbUsedThreads].saf = saf;
+			tparam[nbUsedThreads].nbe = *pnbe;
+			tparam[nbUsedThreads].uparam = param;
+			tparam[nbUsedThreads].maxTry = maxTry;
 
 			/* On crée le thread */
-			threads[nbUsedThreads] = (HANDLE) _beginthreadex(NULL, 0, slvSudThreadProc, (void *) &param, 0, NULL);
+			threads[nbUsedThreads] = (HANDLE) _beginthreadex(NULL, 0, slvSudThreadProc, (void *) (tparam + nbUsedThreads), 0, NULL);
 			if (!threads[nbUsedThreads]) {
 				free(tabTryVect);
+				/* TODO : provoquerla fin des éventuels threads lancés */
 				return -1;
 			}
 			nbUsedThreads++;
@@ -246,21 +269,41 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 				/* Il y a une erreur */
 				st->table[minLigne][minColonne] = 0;
 				free(tabTryVect);
+				/* Provoquerla fin des éventuels threads lancés */
+				for (tix = 0; tix < nbUsedThreads; tix++) {
+					if (!TerminateThread(threads[tix], 0)) {
+						cr = -1;
+					}
+				}
+				free(tparam);
+				free(threads);
 				return cr;
-				/* TODO : provoquerla fin des éventuels threads lancés */
 			}
+
 			st->table[minLigne][minColonne] = 0;
-			/* TODO : attendre la fin des éventuels threads lancés */
+			/* Attendre la fin des éventuels threads lancés */
+			cr = waitForThreadsTermination(nbUsedThreads, threads, tparam, pnbe);
 		}
 	}
-	/* TODO : attendre la fin des éventuels threads lancés */
+	/* attendre la fin des éventuels threads lancés */
+	cr = waitForThreadsTermination(nbUsedThreads, threads, tparam, pnbe);
+	free(tparam);
+	free(threads);
 	free(tabTryVect);
-	return 0;
+	return cr;
 }
 
-static unsigned __stdcall slvSudThreadProc(void* param)
+static unsigned __stdcall slvSudThreadProc(void* vparam)
 {
-	/* TODO */
+	threadParam* tparam = vparam;
+
+	/* Appel de la fonction de travail */
+	tparam-> cr = slvSud(tparam->st, tparam->saf, &(tparam->nbe), tparam->uparam, tparam->maxTry);
+
+	/* Nettoyage avant le retour */
+	releaseSudokuTable(tparam->st);
+
+	_endthreadex(0);
 	return 0;
 }
 
