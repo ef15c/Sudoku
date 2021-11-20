@@ -4,6 +4,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static void printSudoku(PtSudokuTable st)
+{
+	int i, j;
+
+	printf("%u\n%u\n", st->largeur, st->hauteur);
+	for (i = 0; i < st->largeur * st->hauteur; i++) {
+		for (j = 0; j < st->largeur * st->hauteur; j++)
+			printf("%u ", getSudokuSymbol(st, i, j));
+		printf("\n");
+	}
+}
+
 SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall newSudokuTable(int largeur, int hauteur)
 {
 	PtSudokuTable st;
@@ -40,6 +52,21 @@ SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall newSudokuTable(int largeur, int 
 		for (j = 0; j < largeur * hauteur; j++)
 			st->table[i][j] = 0;
 	return st;
+}
+
+SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall cloneSudokuTable(PtSudokuTable st)
+{
+	/* Faire une copie du sudoku*/
+	int i;
+
+	PtSudokuTable newSt = newSudokuTable(st->largeur, st->hauteur);
+	if (newSt) {
+		for (i = 0; i < st->largeur * st->hauteur; i++) {
+			memcpy(newSt->table[i], st->table[i], sizeof(int) * (st->largeur * st->hauteur));
+		}
+	}
+
+	return newSt;
 }
 
 SUDOKU_SOLVER_DLLIMPORT void __stdcall releaseSudokuTable(PtSudokuTable st)
@@ -145,14 +172,20 @@ typedef struct THREAD_PARAM {
 
 static unsigned __stdcall slvSudThreadProc(void* param);
 
-int waitForThreadsTermination(int nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
+int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
 {
-	int tix;
-
-	for (tix = 0; tix < nbt; tix++) {
-		if (WaitForSingleObject(threads[tix], INFINITE) == WAIT_OBJECT_0) {
+	while (*nbt) {
+		(*nbt)--;
+		if (WaitForSingleObject(threads[*nbt], INFINITE) == WAIT_OBJECT_0) {
 			*pnbe += tparam->nbe;
-			if (tparam->cr) {
+
+			/* Nettoyage avant le retour */
+			releaseSudokuTable(tparam[*nbt].st);
+
+			if (!ReleaseSemaphore(hNbTreadsSemaphore, 1, NULL)) {
+				return -1;
+			}
+			if (tparam[*nbt].cr) {
 				return tparam->cr;
 			}
 		}
@@ -246,7 +279,7 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 			/* On peut allouer un nouveau thread */
 
 			/* Faire une copie du sudoku*/
-			PtSudokuTable newSt = newSudokuTable(st->largeur, st->hauteur);
+			PtSudokuTable newSt = cloneSudokuTable(st);
 			if (!newSt) {
 				free(tparam);
 				free(threads);
@@ -254,7 +287,6 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 				return -1;
 			}
 
-			memcpy(newSt->table, st->table, sizeof(int) * st->largeur * st->hauteur);
 			/* On applique la valeur à tester */
 			newSt->table[minLigne][minColonne] = minTryVect[s];
 
@@ -303,11 +335,11 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 
 			st->table[minLigne][minColonne] = 0;
 			/* Attendre la fin des éventuels threads lancés */
-			cr = waitForThreadsTermination(nbUsedThreads, threads, tparam, pnbe);
+			cr = waitForThreadsTermination(&nbUsedThreads, threads, tparam, pnbe);
 		}
 	}
 	/* attendre la fin des éventuels threads lancés */
-	cr = waitForThreadsTermination(nbUsedThreads, threads, tparam, pnbe);
+	cr = waitForThreadsTermination(&nbUsedThreads, threads, tparam, pnbe);
 	free(tparam);
 	free(threads);
 	free(tabTryVect);
@@ -320,9 +352,6 @@ static unsigned __stdcall slvSudThreadProc(void* vparam)
 
 	/* Appel de la fonction de travail */
 	tparam-> cr = slvSud(tparam->st, tparam->saf, &(tparam->nbe), tparam->uparam, tparam->maxTry);
-
-	/* Nettoyage avant le retour */
-	releaseSudokuTable(tparam->st);
 
 	_endthreadex(0);
 	return 0;

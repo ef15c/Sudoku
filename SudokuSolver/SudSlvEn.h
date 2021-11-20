@@ -26,6 +26,11 @@ extern "C" {
 	SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall newSudokuTable(int largeur, int hauteur);
 	/* ---------- */
 
+	/* Duplique complètement une structure de table Sudoku.
+	   La copie est complètement indépendante de l'original */
+	SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall cloneSudokuTable(PtSudokuTable st);
+	/* ---------- */
+
 	/* Libère une structure de table Sudoku */
 	SUDOKU_SOLVER_DLLIMPORT void __stdcall releaseSudokuTable(PtSudokuTable st);
 	/* ---------- */
