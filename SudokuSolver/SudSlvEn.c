@@ -147,7 +147,17 @@ static unsigned __stdcall slvSudThreadProc(void* param);
 
 int waitForThreadsTermination(int nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
 {
-	/* TODO */
+	int tix;
+
+	for (tix = 0; tix < nbt; tix++) {
+		if (WaitForSingleObject(threads[tix], INFINITE) == WAIT_OBJECT_0) {
+			*pnbe += tparam->nbe;
+			if (tparam->cr) {
+				return tparam->cr;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -219,6 +229,8 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 	if (minNbPos == st->hauteur * st->largeur + 1) {
 		/* On a trouvé une nouvelle solution */
 		cr = (*saf)(st, *pnbe, param);
+		free(tparam);
+		free(threads);
 		free(tabTryVect);
 		return cr;
 	}
@@ -236,6 +248,8 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 			/* Faire une copie du sudoku*/
 			PtSudokuTable newSt = newSudokuTable(st->largeur, st->hauteur);
 			if (!newSt) {
+				free(tparam);
+				free(threads);
 				free(tabTryVect);
 				return -1;
 			}
@@ -254,8 +268,15 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 			/* On crée le thread */
 			threads[nbUsedThreads] = (HANDLE) _beginthreadex(NULL, 0, slvSudThreadProc, (void *) (tparam + nbUsedThreads), 0, NULL);
 			if (!threads[nbUsedThreads]) {
-				free(tabTryVect);
-				/* TODO : provoquerla fin des éventuels threads lancés */
+				free(tparam);
+				/* Provoquer la fin des éventuels threads lancés */
+				for (tix = 0; tix < nbUsedThreads; tix++) {
+					if (!TerminateThread(threads[tix], 0)) {
+						cr = -1;
+					}
+				}
+				free(tparam);
+				free(threads);
 				return -1;
 			}
 			nbUsedThreads++;
@@ -269,7 +290,7 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 				/* Il y a une erreur */
 				st->table[minLigne][minColonne] = 0;
 				free(tabTryVect);
-				/* Provoquerla fin des éventuels threads lancés */
+				/* Provoquer la fin des éventuels threads lancés */
 				for (tix = 0; tix < nbUsedThreads; tix++) {
 					if (!TerminateThread(threads[tix], 0)) {
 						cr = -1;
