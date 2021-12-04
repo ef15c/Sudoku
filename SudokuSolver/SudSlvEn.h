@@ -15,94 +15,98 @@
 extern "C" {
 #endif
 
-	/* DÈfinition de la structure qui contient un tableau Sudoku */
+	/* D√©finition de la structure qui contient un tableau Sudoku */
 	typedef struct SUDOKUTABLE {
 		int largeur;
 		int hauteur;
 		int** table;
 	} SudokuTable, * PtSudokuTable;
 
-	/* Initialise une nouvelle structure de table Sudoku d'un ordre donnÈ */
+	/* Initialise une nouvelle structure de table Sudoku d'un ordre donn√© */
 	SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall newSudokuTable(int largeur, int hauteur);
 	/* ---------- */
 
-	/* Duplique complËtement une structure de table Sudoku.
-	   La copie est complËtement indÈpendante de l'original */
+	/* Duplique compl√®tement une structure de table Sudoku.
+	   La copie est compl√®tement ind√©pendante de l'original */
 	SUDOKU_SOLVER_DLLIMPORT PtSudokuTable __stdcall cloneSudokuTable(PtSudokuTable st);
 	/* ---------- */
 
-	/* LibËre une structure de table Sudoku */
+	/* Lib√®re une structure de table Sudoku */
 	SUDOKU_SOLVER_DLLIMPORT void __stdcall releaseSudokuTable(PtSudokuTable st);
 	/* ---------- */
 
 	/* Introduit un symbole dans la table Sudoku
 		 st est un pointeur sur une structure de table sudoku,
-		 symbole est un nombre compris entre 0 (pour effacer un symbole dÈj‡ insÈrÈ)
+		 symbole est un nombre compris entre 0 (pour effacer un symbole d√©j√† ins√©r√©)
 		 et largeur*hauteur que l'on va placer dans le tableau,
-		 ligne dÈsigne la ligne dans laquelle on va insÈrer le symbole, compris
+		 ligne d√©signe la ligne dans laquelle on va ins√©rer le symbole, compris
 		 entre 0 et largeur*hauteur-1,
-		 colonne dÈsigne la colonne dans laquelle on va insÈrer le symbole, compris
+		 colonne d√©signe la colonne dans laquelle on va ins√©rer le symbole, compris
 		 entre 0 et largeur*hauteur-1.
 
-		 La fonction retourne 0 si l'insertion a ÈtÈ effectuÈe, ou l'une des valeurs
+		 La fonction retourne 0 si l'insertion a √©t√© effectu√©e, ou l'une des valeurs
 		 suivantes en cas d'erreur :
 							 10 : ligne ou colonnes sont hors limites,
 							 11 : symbole est hors limites,
-							 1  : le symbole existe dÈj‡ sur la ligne,
-							 2  : le symbole existe dÈj‡ sur la colonne,
-							 3  : le symbole existe dÈj‡ dans la rÈgion.
+							 1  : le symbole existe d√©j√† sur la ligne,
+							 2  : le symbole existe d√©j√† sur la colonne,
+							 3  : le symbole existe d√©j√† dans la r√©gion.
 	*/
 	SUDOKU_SOLVER_DLLIMPORT int __stdcall insertSudokuSymbol(PtSudokuTable st, int symbole,
 		int ligne, int colonne);
 	/* ---------- */
 
-	/* Retourne le symbole prÈsent dans une case du tableau *
+	/* Retourne le symbole pr√©sent dans une case du tableau *
 		 retourne -1 s'il y a une erreur */
 
 	SUDOKU_SOLVER_DLLIMPORT int __stdcall getSudokuSymbol(PtSudokuTable st,
 		int ligne, int colonne);
 
 
-	/* DÈfinition de la fonction "callback" appelÈe par le solveur ‡ chaque solution
-	   trouvÈe.
+	/* D√©finition de la fonction "callback" appel√©e par le solveur √† chaque solution
+	   trouv√©e.
 	   st pointe sur la structure contenant la solution,
-	   nbEssais indique le nombre de symboles qui ont ÈtÈ essayÈs depuis le dÈbut de
-		 la rÈsolution,
+	   nbEssais indique le nombre de symboles qui ont √©t√© essay√©s depuis le d√©but de
+		 la r√©solution,
 	   param contient la valeur fournie par le programme appelant lors de l'appel de
 		   la fonction solveSudoku
 		
 		Valeur de retour : la fonction peut retourner 0 si elle souhaite poursuivre
-							la recherche de solution ou une valeur diffÈrente de 0
-							si la recherche doit s'arrÍter l‡.
+							la recherche de solution ou une valeur diff√©rente de 0
+							si la recherche doit s'arr√™ter l√†.
 	*/
 	typedef int __stdcall SolvedActionFunction(PtSudokuTable st, int nbEssais,
 		void* param);
 	typedef SolvedActionFunction* PtSolvedActionFunction;
 
-	/* RÈsoud le sudoku et appelle la fonction fournie par l'utilisateur losque
-	   une solution est trouvÈe.
-		 st est un pointeur sur la structure contenant le Sudoku ‡ rÈsoudre
-		 saf est un pointeur sur la fonction "callback" qui sera appelÈe
-		 par le solveur ‡ chaque fois qu'une solution est trouvÈe
-		 param est une donnÈe ‡ l'usage exclusif du programme appelant le solveur.
-					 Sa valeur sera retournÈe ‡ chaque appel de saf */
+	/* R√©soud le sudoku et appelle la fonction fournie par l'utilisateur losque
+	   une solution est trouv√©e.
+		 st est un pointeur sur la structure contenant le Sudoku √† r√©soudre
+		 saf est un pointeur sur la fonction "callback" qui sera appel√©e
+		 par le solveur √† chaque fois qu'une solution est trouv√©e
+		 param est une donn√©e √† l'usage exclusif du programme appelant le solveur.
+					 Sa valeur sera retourn√©e √† chaque appel de saf */
 
 	SUDOKU_SOLVER_DLLIMPORT void __stdcall solveSudoku(PtSudokuTable st,
 		PtSolvedActionFunction saf, void* param);
 
-	/* RÈsoud le sudoku et appelle la fonction fournie par l'utilisateur losque
-	   une solution est trouvÈe.
-		 st est un pointeur sur la structure contenant le Sudoku ‡ rÈsoudre
-		 saf est un pointeur sur la fonction "callback" qui sera appelÈe
-		 par le solveur ‡ chaque fois qu'une solution est trouvÈe
-		 param est une donnÈe ‡ l'usage exclusif du programme appelant le solveur.
-					 Sa valeur sera retournÈe ‡ chaque appel de saf
-		 maxTry est le nombre maximal d'essais allouÈs pour rÈsoudre le sudoku. Si
-		 ce nombre d'essais est dÈpassÈ, la fonction retournera un code d'erreur -2.
+	/* R√©soud le sudoku et appelle la fonction fournie par l'utilisateur losque
+	   une solution est trouv√©e.
+		 st est un pointeur sur la structure contenant le Sudoku √† r√©soudre
+		 saf est un pointeur sur la fonction "callback" qui sera appel√©e
+		 par le solveur √† chaque fois qu'une solution est trouv√©e
+		 param est une donn√©e √† l'usage exclusif du programme appelant le solveur.
+					 Sa valeur sera retourn√©e √† chaque appel de saf
+		 maxTry est le nombre maximal d'essais allou√©s pour r√©soudre le sudoku. Si
+		 ce nombre d'essais est d√©pass√©, la fonction retournera un code d'erreur -2.
 		 si maxTry vaut 0, il n'y a pas de limite au nombre d'essais */
 
 	SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 		PtSolvedActionFunction saf, void* param, int maxTry);
+
+	/* Lib√®re toutes les ressources allou√©e lors de la r√©solution d'un sudoku */
+
+	SUDOKU_SOLVER_DLLIMPORT void __stdcall deinitSudoku(void);
 
 #ifdef	__cplusplus
 }
