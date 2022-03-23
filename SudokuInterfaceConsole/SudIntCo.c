@@ -103,8 +103,10 @@ int main(int argc, char* argv[])
 				}
 			fclose(fs);
 
-			printSudoku(st);
-			solveSudoku(st, SolutionSudoku, NULL);
+			for (i = 0; i < 2; i++) {
+				printSudoku(st);
+				solveSudoku(st, SolutionSudoku, NULL);
+			}
 
 			printf("Sudoku %ux%u",
 				st->largeur, st->hauteur);
@@ -112,5 +114,8 @@ int main(int argc, char* argv[])
 			printf(" d‚truit !\n");
 		}
 	}
+
+	deinitSudoku();
+
 	return 0;
 }
