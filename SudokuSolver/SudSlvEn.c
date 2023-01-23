@@ -233,6 +233,8 @@ HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
 				/* Ce sémaphore permet de bloquer le processus de travail pendant que le processus 
 				   principal traite le résultat */
 				p->canContinue = CreateSemaphore(NULL, 0, 1, NULL);
+				assert(p->canContinue);
+
 				/* On crée le thread */
 				p->thread = (HANDLE)_beginthreadex(NULL, 0, slvSudThreadProc, (void*)p, 0, NULL);
 				assert(p->thread);
@@ -352,6 +354,7 @@ static unsigned int __stdcall slvSudThreadProc(void* vparam)
 	tparam->st = NULL;
 
 	assert (CloseHandle(tparam->canContinue));
+	tparam->canContinue = NULL;
 
 	/* Libère le bloc */
 	tparam->thread = NULL;
@@ -442,6 +445,8 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	}
 
 	assert (CloseHandle(solutionFoundSemaphore));
+	solutionFoundSemaphore = NULL;
+
 	return terminationRequested;
 }
 
