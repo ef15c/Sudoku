@@ -3,6 +3,8 @@
 #include <process.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <stdbool.h>
 
 static void printSudoku(PtSudokuTable st)
 {
@@ -158,21 +160,31 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall getSudokuSymbol(PtSudokuTable st,
 	return st->table[ligne][colonne];
 }
 
+static int nbCPU = -1;
+
+/* A initialiser au dépat quand nbCPU = -1*/
 HANDLE hNbTreadsSemaphore;
-int nbCPU = -1;
+HANDLE hProtectThreadsParameters;
 
 typedef struct THREAD_PARAM {
+	HANDLE thread;
 	PtSudokuTable st;
-	PtSolvedActionFunction saf;
 	int nbe;
-	void* uparam;
 	int maxTry;
-	int cr;
+	bool solutionFound;
+	HANDLE canContinue;
 } threadParam, * ptThreadParam;
 
-static unsigned __stdcall slvSudThreadProc(void* param);
+static ptThreadParam tparam;
 
-int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
+/* A initialiser à chaque appel de solveSudokuMaxTry */
+static HANDLE solutionFoundSemaphore;
+static volatile bool terminationRequested;
+
+static unsigned int __stdcall slvSudThreadProc(void* param);
+
+#if 0
+static int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
 {
 	while (*nbt) {
 		(*nbt)--;
@@ -193,58 +205,87 @@ int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tparam, i
 
 	return 0;
 }
+#endif
 
-static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
-	int* pnbe, void* param, int maxTry)
+void workerSolution(ptThreadParam param)
 {
-	int i, j, s, cr;
+	/* Retourner la solution au thread principal */
+	param->solutionFound = TRUE;
+	assert(ReleaseSemaphore(solutionFoundSemaphore, 1, NULL));
+	assert(WaitForSingleObject(param->canContinue, INFINITE) == WAIT_OBJECT_0);
+}
+
+HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
+{
+	if (WaitForSingleObject(hProtectThreadsParameters, INFINITE) == WAIT_OBJECT_0) {
+		/* On a obtenu le droit de modifier nbUsedThreads */
+		int i;
+		ptThreadParam p=NULL;
+
+		for (i = 0; i < nbCPU; i++) {
+			p = tparam + i;
+			if (!p->thread) {
+				/* On remplit une structure de données pour passer les arguments au thread */
+				p->st = nst;
+				p->nbe = nbe;
+				p->maxTry = maxTry;
+
+				/* Ce sémaphore permet de bloquer le processus de travail pendant que le processus 
+				   principal traite le résultat */
+				p->canContinue = CreateSemaphore(NULL, 0, 1, NULL);
+				/* On crée le thread */
+				p->thread = (HANDLE)_beginthreadex(NULL, 0, slvSudThreadProc, (void*)p, 0, NULL);
+				assert(p->thread);
+
+				break;
+			}
+		}
+
+		assert(p);
+		assert(i < nbCPU);
+		assert(ReleaseMutex(hProtectThreadsParameters));
+
+		return p->thread;
+	}
+
+	return NULL;
+}
+
+static void slvSud(ptThreadParam par)
+{
+	int i, j, s;
 	int nbPos, minNbPos, minLigne, minColonne;
 
 	int* tabTryVect;
 	int* tryVect;
 	int* minTryVect;
-	int tix;
 
-	HANDLE* threads;
-	int nbUsedThreads;
 
-	ptThreadParam tparam;
+	if (par->maxTry > 0 && par->nbe > par->maxTry) {
+		return;
+	}
 
-	if (maxTry > 0 && *pnbe > maxTry)
-		return -2;
-
-	tabTryVect = malloc(2 * sizeof(int) * st->largeur * st->hauteur);
-	if (!tabTryVect)
-		return -1;
+	tabTryVect = malloc(2 * sizeof(int) * par->st->largeur * par->st->hauteur);
+	assert(tabTryVect);
 
 	tryVect = tabTryVect;
-	minTryVect = tabTryVect + (st->largeur * st->hauteur);
+	minTryVect = tabTryVect + (par->st->largeur * par->st->hauteur);
 
-	threads = malloc(nbCPU * sizeof(HANDLE));
-	if (!threads) {
-		free(tabTryVect);
-		return -1;
-	}
-
-	tparam = malloc(nbCPU * sizeof(threadParam));
-	if (!tparam) {
-		free(tabTryVect);
-		free(threads);
-		return -1;
-	}
-
-
-	/* On recherche les cas pour lesquelles le nombre de possibilités est
+	/* On recherche les cases pour lesquelles le nombre de possibilités est
 	   minimal. S'il y en a plusieurs, on choisit la première */
-	minNbPos = st->hauteur * st->largeur + 1;
-	for (i = 0; i < st->hauteur * st->largeur; i++)
-		for (j = 0; j < st->hauteur * st->largeur; j++)
-			if (st->table[i][j] == 0) {
+
+	minNbPos = par->st->hauteur * par->st->largeur + 1;
+
+	for (i = 0; i < par->st->hauteur * par->st->largeur; i++) {
+		for (j = 0; j < par->st->hauteur * par->st->largeur; j++) {
+			if (par->st->table[i][j] == 0) {
 				/* La case est vide */
 				nbPos = 0;
-				for (s = 1; s <= st->hauteur * st->largeur; s++)
-					if (isValid(st, s, i, j) == 0)
+				for (s = 1; s <= par->st->hauteur * par->st->largeur; s++) {
+					if (isValid(par->st, s, i, j) == 0)
 						tryVect[nbPos++] = s;
+				}
+
 				if (nbPos < minNbPos) {
 					minNbPos = nbPos;
 					for (s = 0; s < nbPos; s++)
@@ -253,106 +294,73 @@ static int slvSud(PtSudokuTable st, PtSolvedActionFunction saf,
 					minColonne = j;
 				}
 			}
-	// Pour débug
-	//    printf("minNbPos = %u [%u, %u] : ", minNbPos, minLigne, minColonne);
-	//    for (s=0; s<minNbPos; s++)
-	//    		printf("%u ", minTryVect[s]);
-	//    printf("\n");
-	// Fin débug
-	if (minNbPos == st->hauteur * st->largeur + 1) {
+		}
+	}
+
+	if (minNbPos == par->st->hauteur * par->st->largeur + 1) {
 		/* On a trouvé une nouvelle solution */
-		cr = (*saf)(st, *pnbe, param);
-		free(tparam);
-		free(threads);
+		workerSolution(par);
 		free(tabTryVect);
-		return cr;
 	}
 
 	/* Il reste des symboles à placer dans la table, donc on essaie toutes
 	   les combinaisons restantes */
 
-	cr = 0;
-	nbUsedThreads = 0;
 	for (s = 0; s < minNbPos; s++) {
+		if (terminationRequested) {
+			/* L'arrêt a été demandé */
+			free(tabTryVect);
+			return;
+		}
+
 		/* On tente d'allouer un nouveau thead, dans la limite des CPU disponibles dans la machine */
 		if (WaitForSingleObject(hNbTreadsSemaphore, 0) == WAIT_OBJECT_0) {
 			/* On peut allouer un nouveau thread */
 
 			/* Faire une copie du sudoku*/
-			PtSudokuTable newSt = cloneSudokuTable(st);
-			if (!newSt) {
-				free(tparam);
-				free(threads);
-				free(tabTryVect);
-				return -1;
-			}
+			PtSudokuTable newSt = cloneSudokuTable(par->st);
+			assert(newSt);
 
 			/* On applique la valeur à tester */
 			newSt->table[minLigne][minColonne] = minTryVect[s];
 
-			/* On remplit une structure de données pour passer les arguments au thread */
-			tparam[nbUsedThreads].st = newSt;
-			tparam[nbUsedThreads].saf = saf;
-			tparam[nbUsedThreads].nbe = *pnbe;
-			tparam[nbUsedThreads].uparam = param;
-			tparam[nbUsedThreads].maxTry = maxTry;
-
-			/* On crée le thread */
-			threads[nbUsedThreads] = (HANDLE) _beginthreadex(NULL, 0, slvSudThreadProc, (void *) (tparam + nbUsedThreads), 0, NULL);
-			if (!threads[nbUsedThreads]) {
-				free(tparam);
-				/* Provoquer la fin des éventuels threads lancés */
-				for (tix = 0; tix < nbUsedThreads; tix++) {
-					if (!TerminateThread(threads[tix], 0)) {
-						cr = -1;
-					}
-				}
-				free(tparam);
-				free(threads);
-				return -1;
-			}
-			nbUsedThreads++;
+			createNewWorkerThread(newSt, par->nbe, par->maxTry);
 		} else {
 			// Plus de threads disponibles, on effectue le travail dans ce thread */
 
-			st->table[minLigne][minColonne] = minTryVect[s];
-			(*pnbe)++;
-			cr = slvSud(st, saf, pnbe, param, maxTry);
-			if (cr) {
-				/* Il y a une erreur */
-				st->table[minLigne][minColonne] = 0;
-				free(tabTryVect);
-				/* Provoquer la fin des éventuels threads lancés */
-				for (tix = 0; tix < nbUsedThreads; tix++) {
-					if (!TerminateThread(threads[tix], 0)) {
-						cr = -1;
-					}
-				}
-				free(tparam);
-				free(threads);
-				return cr;
-			}
-
-			st->table[minLigne][minColonne] = 0;
-			/* Attendre la fin des éventuels threads lancés */
-			cr = waitForThreadsTermination(&nbUsedThreads, threads, tparam, pnbe);
+			par->st->table[minLigne][minColonne] = minTryVect[s];
+			par->nbe++;
+			slvSud(par);
+			par->st->table[minLigne][minColonne] = 0;
 		}
 	}
-	/* attendre la fin des éventuels threads lancés */
-	cr = waitForThreadsTermination(&nbUsedThreads, threads, tparam, pnbe);
-	free(tparam);
-	free(threads);
+
 	free(tabTryVect);
-	return cr;
 }
 
-static unsigned __stdcall slvSudThreadProc(void* vparam)
+static unsigned int __stdcall slvSudThreadProc(void* vparam)
 {
 	threadParam* tparam = vparam;
 
 	/* Appel de la fonction de travail */
-	tparam-> cr = slvSud(tparam->st, tparam->saf, &(tparam->nbe), tparam->uparam, tparam->maxTry);
+	slvSud(tparam);
 
+	/* La fonction vient de se terminer */
+	/* Nettoyage avant le retour */
+
+	releaseSudokuTable(tparam->st);
+	tparam->st = NULL;
+
+	assert (CloseHandle(tparam->canContinue));
+
+	/* Libère le bloc */
+	tparam->thread = NULL;
+
+	/* Incrémenter le nombre de CPU disponibles */
+	assert (ReleaseSemaphore(hNbTreadsSemaphore, 1, NULL));
+
+	/* Libérer le processus principal */
+	assert(ReleaseSemaphore(solutionFoundSemaphore, 1, NULL));
 	_endthreadex(0);
 	return 0;
 }
@@ -363,37 +371,95 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	   sudoku. Si maxTry vaut 0, il n'y a pas de limitation au nombre d'essais.*/
 {
 	int nbe = 0;
-	int cr;
-
+	
 	SYSTEM_INFO sysinfo;
 
 	if (nbCPU == -1) {
 		GetSystemInfo(&sysinfo);
 
-		// Pour test
-		//	nbCPU = 0;
-		nbCPU = sysinfo.dwNumberOfProcessors - 1; /* On retire 1 processeur, car il y a déjà un thread en cours */
+		nbCPU = sysinfo.dwNumberOfProcessors;
 
+		assert(nbCPU > 0);
 
-		if (nbCPU > 0) {
-			hNbTreadsSemaphore = CreateSemaphore(NULL, nbCPU, nbCPU, NULL);
-			if (!hNbTreadsSemaphore) {
-				return -1;
+		/* Ce sémaphore limite le nombre de processus de travail au nombre de CPU existants dans la machine */
+		hNbTreadsSemaphore = CreateSemaphore(NULL, nbCPU, nbCPU, NULL);
+		assert(hNbTreadsSemaphore);
+
+		hProtectThreadsParameters = CreateMutex(NULL, FALSE, NULL);
+		assert(hProtectThreadsParameters);
+
+		tparam = malloc(nbCPU * sizeof(threadParam));
+		assert(tparam);
+
+		memset(tparam, 0, nbCPU * sizeof(threadParam));
+
+	}
+
+	/* Ce sémaphore sera utilisés par les processus de travail pour signaler la disponibilité des résultats */
+	solutionFoundSemaphore = CreateSemaphore(NULL, 0, nbCPU, NULL);
+	assert(solutionFoundSemaphore);
+
+	terminationRequested = FALSE;
+
+	/* On crée le premier thead, qui lancera les autres dans la limite des CPU disponibles dans la machine */
+	assert(WaitForSingleObject(hNbTreadsSemaphore, 0) == WAIT_OBJECT_0);
+
+	/* Faire une copie du sudoku*/
+	PtSudokuTable newSt = cloneSudokuTable(st);
+	assert(newSt);
+
+	createNewWorkerThread(newSt, 0, maxTry);
+
+	/* Traitement des données retournées par les threads */
+	while (true) {
+		int i;
+
+		assert(WaitForSingleObject(solutionFoundSemaphore, INFINITE) == WAIT_OBJECT_0);
+
+		for (i = 0; i < nbCPU; i++) {
+			ptThreadParam p = tparam + i;
+
+			if (p->thread && p->solutionFound) {
+				/* Une solution a été trouvée */
+				/* Renvoyer le résultat */
+				p->solutionFound = FALSE;
+				if ((*saf)(p->st, p->nbe, param)) {
+					/* Arrêt demandé */
+					terminationRequested = TRUE;
+				}
+				/* On permet au processus de travail de continuer sa tâche */
+				assert(ReleaseSemaphore(p->canContinue, 1, NULL));
+
+				/* Sortir de la boucle après le traitement d'un résultat */
+				break;
 			}
+		}
+
+		if (i >= nbCPU) {
+			/* Tous les threads sont terminés */
+			break;
 		}
 	}
 
-
-	cr = slvSud(st, saf, &nbe, param, maxTry);
-
-	return cr;
+	assert (CloseHandle(solutionFoundSemaphore));
+	return terminationRequested;
 }
 
 SUDOKU_SOLVER_DLLIMPORT void __stdcall deinitSudoku(void)
 {
 	if (hNbTreadsSemaphore) {
-		CloseHandle(hNbTreadsSemaphore);
+		assert (CloseHandle(hNbTreadsSemaphore));
 		hNbTreadsSemaphore = NULL;
+	}
+
+	if (hProtectThreadsParameters) {
+		assert (CloseHandle(hProtectThreadsParameters));
+		hProtectThreadsParameters = NULL;
+	}
+
+	if (tparam) {
+		free(tparam);
+		tparam = NULL;
 	}
 
 	nbCPU = -1;
