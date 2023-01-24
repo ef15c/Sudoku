@@ -400,6 +400,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 {
 	int nbe = 0;
 	bool threadAlive;
+	int cr;
 	
 	SYSTEM_INFO sysinfo;
 
@@ -443,6 +444,8 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	createNewWorkerThread(newSt, 0, maxTry);
 
 	/* Traitement des données retournées par les threads */
+	cr = 0;
+
 	do {
 		int i;
 		bool eventProcessed;
@@ -477,6 +480,9 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 				case TERMINATED:
 					eventProcessed = TRUE;
 					/* On permet au processus de travail de continuer sa tâche */
+					if (p->maxTry > 0 && p->nbe > p->maxTry) {
+						cr = -2;
+					}
 					assert(ReleaseSemaphore(p->canContinue, 1, NULL));
 					/* Attente de terminaison du thread */
 					assert(WaitForSingleObject(thread, INFINITE) == WAIT_OBJECT_0);
@@ -502,7 +508,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	printf("workerEventSemaphore destroyed.\n");
 #endif
 
-	return terminationRequested;
+	return cr?cr:terminationRequested;
 }
 
 SUDOKU_SOLVER_DLLIMPORT void __stdcall deinitSudoku(void)

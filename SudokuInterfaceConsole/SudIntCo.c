@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+
 #include "SudSlvEn.h"
 
 void printSudoku(PtSudokuTable st)
@@ -16,10 +18,15 @@ void printSudoku(PtSudokuTable st)
 
 static int nbS;
 
+static bool print = true;
+
 int __stdcall SolutionSudoku(PtSudokuTable st, int nbEssais, void* param)
 {
-	printf("\nSolution %u, %u essais :\n", ++nbS, nbEssais);
-	printSudoku(st);
+	if (print) {
+		printf("\nSolution %u, %u essais :\n", ++nbS, nbEssais);
+		printSudoku(st);
+	}
+
 	return 0;
 }
 
@@ -78,12 +85,18 @@ int main(int argc, char* argv[])
 		int h, l, i, j, s, cr;
 		errno_t fcr;
 
+		if (argc > 2) {
+			if (!strncmp(argv[2], "--no-print", 11)) {
+				print = false;
+			}
+		}
 		printf("argv[1]=%s\n", argv[1]);
 		fcr = fopen_s(&fs, argv[1], "r");
 		if (fcr) {
 			printf("Erreur d'ouverture du fichier %s\n", argv[1]);
 			return 1;
 		}
+
 		fscanf_s(fs, "%u", &l);
 		fscanf_s(fs, "%u", &h);
 		st = newSudokuTable(l, h);
@@ -104,10 +117,12 @@ int main(int argc, char* argv[])
 			fclose(fs);
 
 			for (i = 0; i < 2; i++) {
+				int cr;
+
 				printSudoku(st);
 				nbS = 0;
-				solveSudoku(st, SolutionSudoku, NULL);
-				printf("-------------\n");
+				cr = solveSudokuMaxTry(st, SolutionSudoku, NULL, 1000000);
+				printf("cr: %d -------------\n", cr);
 			}
 
 			printf("Sudoku %ux%u",
