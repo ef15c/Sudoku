@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <strsafe.h>
 
+//#define DEBOGUAGE
+
 static void printSudoku(PtSudokuTable st)
 {
 	int i, j;
@@ -168,9 +170,9 @@ HANDLE hNbTreadsSemaphore;
 HANDLE hProtectThreadsParameters;
 
 typedef enum {
+	TERMINATED,
 	RUNNING,
 	SOLUTION_FOUND,
-	TERMINATED,
 } workerState;
 
 typedef struct THREAD_PARAM {
@@ -185,8 +187,8 @@ typedef struct THREAD_PARAM {
 static ptThreadParam tparam;
 
 /* A initialiser à chaque appel de solveSudokuMaxTry */
-static HANDLE solutionFoundSemaphore;
-static volatile bool terminationRequested;
+static HANDLE workerEventSemaphore;
+static bool terminationRequested;
 
 static unsigned int __stdcall slvSudThreadProc(void* param);
 
@@ -214,13 +216,60 @@ static int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tp
 }
 #endif
 
+#if 0
+static void ErrorExit(LPTSTR lpszFunction)
+{
+	// Retrieve the system error message for the last-error code
+	LPVOID lpMsgBuf;
+	LPVOID lpDisplayBuf;
+	DWORD dw = GetLastError();
+	FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL
+		,
+		dw,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&lpMsgBuf,
+		0
+		,
+		NULL
+	);
+	// Display the error message and exit the process
+	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
+		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
+	StringCchPrintf((LPTSTR)lpDisplayBuf,
+		LocalSize(lpDisplayBuf) /
+		sizeof
+		(TCHAR),
+		TEXT(
+			"%s failed with error %d: %s"
+		),
+		lpszFunction, dw, lpMsgBuf);
+	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
+	LocalFree(lpMsgBuf);
+	LocalFree(lpDisplayBuf);
+	ExitProcess(dw);
+}
+#endif
+
 void workerSolution(ptThreadParam param)
 {
 	/* Retourner la solution au thread principal */
 	param->state = SOLUTION_FOUND;
-	assert(ReleaseSemaphore(solutionFoundSemaphore, 1, NULL));
-	printf("realease solutionFoundSemaphore\n");
+#ifdef DEBOGUAGE
+		printf("workerSolution: realease workerEventSemaphore\n");
+#endif
+	assert(ReleaseSemaphore(workerEventSemaphore, 1, NULL));
+#ifdef DEBOGUAGE
+	printf("workerSolution: wait for canContinue\n");
+#endif
 	assert(WaitForSingleObject(param->canContinue, INFINITE) == WAIT_OBJECT_0);
+#ifdef DEBOGUAGE
+	printf("workerSolution: passed\n");
+#endif
+	param->state = RUNNING;
 }
 
 HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
@@ -232,11 +281,14 @@ HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
 
 		for (i = 0; i < nbCPU; i++) {
 			p = tparam + i;
-			if (!p->thread) {
+			if (p->state == TERMINATED) {
+				assert(!p->thread);
+
 				/* On remplit une structure de données pour passer les arguments au thread */
 				p->st = nst;
 				p->nbe = nbe;
 				p->maxTry = maxTry;
+				p->state = RUNNING;
 
 				/* Ce sémaphore permet de bloquer le processus de travail pendant que le processus 
 				   principal traite le résultat */
@@ -246,7 +298,9 @@ HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
 				/* On crée le thread */
 				p->thread = (HANDLE)_beginthreadex(NULL, 0, slvSudThreadProc, (void*)p, 0, NULL);
 				assert(p->thread);
-
+#ifdef DEBOGUAGE
+				printf("createNewWorkerThread: new thread created\n");
+#endif
 				break;
 			}
 		}
@@ -311,6 +365,7 @@ static void slvSud(ptThreadParam par)
 		/* On a trouvé une nouvelle solution */
 		workerSolution(par);
 		free(tabTryVect);
+		return;
 	}
 
 	/* Il reste des symboles à placer dans la table, donc on essaie toutes
@@ -348,42 +403,6 @@ static void slvSud(ptThreadParam par)
 	free(tabTryVect);
 }
 
-static void ErrorExit(LPTSTR lpszFunction)
-{
-	// Retrieve the system error message for the last-error code
-	LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;
-	DWORD dw = GetLastError();
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL
-		,
-		dw,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf,
-		0
-		,
-		NULL
-	);
-	// Display the error message and exit the process
-	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof	(TCHAR));
-	StringCchPrintf((LPTSTR)lpDisplayBuf,
-		LocalSize(lpDisplayBuf) /
-		sizeof
-		(TCHAR),
-		TEXT(
-			"%s failed with error %d: %s"
-		),
-		lpszFunction, dw, lpMsgBuf);
-	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
-	LocalFree(lpMsgBuf);
-	LocalFree(lpDisplayBuf);
-	ExitProcess(dw);
-}
-
 static unsigned int __stdcall slvSudThreadProc(void* vparam)
 {
 	threadParam* tparam = vparam;
@@ -394,23 +413,32 @@ static unsigned int __stdcall slvSudThreadProc(void* vparam)
 	/* La fonction vient de se terminer */
 	/* Nettoyage avant le retour */
 
+	tparam->state = TERMINATED;
+
 	releaseSudokuTable(tparam->st);
 	tparam->st = NULL;
 
-	assert (CloseHandle(tparam->canContinue));
+	/* Libérer le processus principal */
+#ifdef DEBOGUAGE
+	printf("slvSudThreadProc: realease workerEventSemaphore\n");
+#endif
+	assert(ReleaseSemaphore(workerEventSemaphore, 1, NULL));
+
+#ifdef DEBOGUAGE
+	printf("slvSudThreadProc: wait for canContinue\n");
+#endif
+	assert(WaitForSingleObject(tparam->canContinue, INFINITE) == WAIT_OBJECT_0);
+#ifdef DEBOGUAGE
+	printf("slvSudThreadProc: passed\n");
+#endif
+
+	assert(CloseHandle(tparam->canContinue));
 	tparam->canContinue = NULL;
 
-	/* Libère le bloc */
 	tparam->thread = NULL;
 
 	/* Incrémenter le nombre de CPU disponibles */
-	assert (ReleaseSemaphore(hNbTreadsSemaphore, 1, NULL));
-
-	/* Libérer le processus principal */
-	if (!ReleaseSemaphore(solutionFoundSemaphore, 1, NULL)) {
-		printf("realease solutionFoundSemaphore\n");
-		ErrorExit(TEXT("slvSudThreadProc"));
-	}
+	assert(ReleaseSemaphore(hNbTreadsSemaphore, 1, NULL));
 
 	_endthreadex(0);
 	return 0;
@@ -422,7 +450,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	   sudoku. Si maxTry vaut 0, il n'y a pas de limitation au nombre d'essais.*/
 {
 	int nbe = 0;
-	bool theadAlive = TRUE;
+	bool threadAlive;
 	
 	SYSTEM_INFO sysinfo;
 
@@ -448,9 +476,11 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	}
 
 	/* Ce sémaphore sera utilisés par les processus de travail pour signaler la disponibilité des résultats */
-	solutionFoundSemaphore = CreateSemaphore(NULL, 0, nbCPU, NULL);
-	assert(solutionFoundSemaphore);
-	printf("solutionFoundSemaphore created.\n");
+	workerEventSemaphore = CreateSemaphore(NULL, 0, nbCPU, NULL);
+	assert(workerEventSemaphore);
+#ifdef DEBOGUAGE
+	printf("workerEventSemaphore created.\n");
+#endif
 
 	terminationRequested = FALSE;
 
@@ -464,48 +494,63 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 	createNewWorkerThread(newSt, 0, maxTry);
 
 	/* Traitement des données retournées par les threads */
-	while (theadAlive) {
+	do {
 		int i;
+		bool eventProcessed;
 
-		printf("Wait for solutionFoundSemaphore\n");
-		assert(WaitForSingleObject(solutionFoundSemaphore, INFINITE) == WAIT_OBJECT_0);
+#ifdef DEBOGUAGE
+		printf("solveSudokuMaxTry: wait for workerEventSemaphore\n");
+#endif
+		assert(WaitForSingleObject(workerEventSemaphore, INFINITE) == WAIT_OBJECT_0);
+#ifdef DEBOGUAGE
+		printf("solveSudokuMaxTry: passed\n");
+#endif
 
-		theadAlive = FALSE;
-		for (i = 0; i < nbCPU; i++) {
+		eventProcessed = FALSE;
+		for (i = 0; !eventProcessed && i < nbCPU; i++) {
 			ptThreadParam p = tparam + i;
+			HANDLE thread = p->thread;
 
-			switch (p->state) {
-			case RUNNING:
-				theadAlive = TRUE;
-				break;
-			case SOLUTION_FOUND:
-				theadAlive = TRUE;
-				/* Une solution a été trouvée */
-				p->state = RUNNING;
-				/* Renvoyer le résultat */
-				if ((*saf)(p->st, p->nbe, param)) {
-					/* Arrêt demandé */
-					terminationRequested = TRUE;
+			if (thread) {
+				switch (p->state) {
+				case SOLUTION_FOUND:
+					eventProcessed = TRUE;
+					/* Une solution a été trouvée */
+					/* Renvoyer le résultat */
+					if ((*saf)(p->st, p->nbe, param)) {
+						/* Arrêt demandé */
+						terminationRequested = TRUE;
+					}
+					/* On permet au processus de travail de continuer sa tâche */
+					assert(ReleaseSemaphore(p->canContinue, 1, NULL));
+					break;
+				case TERMINATED:
+					eventProcessed = TRUE;
+					/* On permet au processus de travail de continuer sa tâche */
+					assert(ReleaseSemaphore(p->canContinue, 1, NULL));
+					/* Attente de terminaison du thread */
+					assert(WaitForSingleObject(thread, INFINITE) == WAIT_OBJECT_0);
+					break;
 				}
-				/* On permet au processus de travail de continuer sa tâche */
-				assert(ReleaseSemaphore(p->canContinue, 1, NULL));
-				break;
-			case TERMINATED:
-				/* On permet au processus de travail de continuer sa tâche */
-				assert(ReleaseSemaphore(p->canContinue, 1, NULL));
-				break;
 			}
 		}
 
-		if (i >= nbCPU) {
-			/* Tous les threads sont terminés */
-			break;
-		}
-	}
+		threadAlive = FALSE;
+		for (i = 0; i < nbCPU; i++) {
+			ptThreadParam p = tparam + i;
 
-	assert (CloseHandle(solutionFoundSemaphore));
-	solutionFoundSemaphore = NULL;
-	printf("solutionFoundSemaphore destroyed.\n");
+			if (p->thread) {
+				threadAlive = TRUE;
+				break;
+			}
+		}
+	} while (threadAlive);
+
+	assert (CloseHandle(workerEventSemaphore));
+	workerEventSemaphore = NULL;
+#ifdef DEBOGUAGE
+	printf("workerEventSemaphore destroyed.\n");
+#endif
 
 	return terminationRequested;
 }

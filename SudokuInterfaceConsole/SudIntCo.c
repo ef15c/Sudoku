@@ -14,10 +14,10 @@ void printSudoku(PtSudokuTable st)
 	}
 }
 
+static int nbS;
+
 int __stdcall SolutionSudoku(PtSudokuTable st, int nbEssais, void* param)
 {
-	static int nbS = 0;
-
 	printf("\nSolution %u, %u essais :\n", ++nbS, nbEssais);
 	printSudoku(st);
 	return 0;
@@ -105,7 +105,9 @@ int main(int argc, char* argv[])
 
 			for (i = 0; i < 2; i++) {
 				printSudoku(st);
+				nbS = 0;
 				solveSudoku(st, SolutionSudoku, NULL);
+				printf("-------------\n");
 			}
 
 			printf("Sudoku %ux%u",
