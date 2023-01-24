@@ -7,6 +7,11 @@
 #include <stdbool.h>
 #include <strsafe.h>
 
+#ifdef NDEBUG
+#undef assert
+#define assert(expression) (expression)
+#endif // !NDEBUG
+
 //#define DEBOGUAGE
 
 static void printSudoku(PtSudokuTable st)
@@ -176,11 +181,11 @@ typedef enum {
 } workerState;
 
 typedef struct THREAD_PARAM {
-	HANDLE thread;
+	volatile HANDLE thread;
 	PtSudokuTable st;
 	int nbe;
 	int maxTry;
-	workerState state;
+	volatile workerState state;
 	HANDLE canContinue;
 } threadParam, * ptThreadParam;
 
@@ -192,67 +197,7 @@ static bool terminationRequested;
 
 static unsigned int __stdcall slvSudThreadProc(void* param);
 
-#if 0
-static int waitForThreadsTermination(int *nbt, HANDLE* threads, ptThreadParam tparam, int* pnbe)
-{
-	while (*nbt) {
-		(*nbt)--;
-		if (WaitForSingleObject(threads[*nbt], INFINITE) == WAIT_OBJECT_0) {
-			*pnbe += tparam->nbe;
 
-			/* Nettoyage avant le retour */
-			releaseSudokuTable(tparam[*nbt].st);
-
-			if (!ReleaseSemaphore(hNbTreadsSemaphore, 1, NULL)) {
-				return -1;
-			}
-			if (tparam[*nbt].cr) {
-				return tparam->cr;
-			}
-		}
-	}
-
-	return 0;
-}
-#endif
-
-#if 0
-static void ErrorExit(LPTSTR lpszFunction)
-{
-	// Retrieve the system error message for the last-error code
-	LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;
-	DWORD dw = GetLastError();
-	FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		FORMAT_MESSAGE_FROM_SYSTEM |
-		FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL
-		,
-		dw,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf,
-		0
-		,
-		NULL
-	);
-	// Display the error message and exit the process
-	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-		(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR));
-	StringCchPrintf((LPTSTR)lpDisplayBuf,
-		LocalSize(lpDisplayBuf) /
-		sizeof
-		(TCHAR),
-		TEXT(
-			"%s failed with error %d: %s"
-		),
-		lpszFunction, dw, lpMsgBuf);
-	MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
-	LocalFree(lpMsgBuf);
-	LocalFree(lpDisplayBuf);
-	ExitProcess(dw);
-}
-#endif
 
 void workerSolution(ptThreadParam param)
 {
@@ -269,7 +214,6 @@ void workerSolution(ptThreadParam param)
 #ifdef DEBOGUAGE
 	printf("workerSolution: passed\n");
 #endif
-	param->state = RUNNING;
 }
 
 HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
@@ -311,6 +255,8 @@ HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
 
 		return p->thread;
 	}
+
+	assert(FALSE);
 
 	return NULL;
 }
@@ -378,6 +324,8 @@ static void slvSud(ptThreadParam par)
 			return;
 		}
 
+		par->nbe++;
+
 		/* On tente d'allouer un nouveau thead, dans la limite des CPU disponibles dans la machine */
 		if (WaitForSingleObject(hNbTreadsSemaphore, 0) == WAIT_OBJECT_0) {
 			/* On peut allouer un nouveau thread */
@@ -394,7 +342,6 @@ static void slvSud(ptThreadParam par)
 			// Plus de threads disponibles, on effectue le travail dans ce thread */
 
 			par->st->table[minLigne][minColonne] = minTryVect[s];
-			par->nbe++;
 			slvSud(par);
 			par->st->table[minLigne][minColonne] = 0;
 		}
@@ -406,6 +353,8 @@ static void slvSud(ptThreadParam par)
 static unsigned int __stdcall slvSudThreadProc(void* vparam)
 {
 	threadParam* tparam = vparam;
+
+	assert(tparam->thread);
 
 	/* Appel de la fonction de travail */
 	slvSud(tparam);
@@ -522,6 +471,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 						terminationRequested = TRUE;
 					}
 					/* On permet au processus de travail de continuer sa tâche */
+					p->state = RUNNING;
 					assert(ReleaseSemaphore(p->canContinue, 1, NULL));
 					break;
 				case TERMINATED:
