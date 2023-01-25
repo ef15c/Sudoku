@@ -242,6 +242,9 @@ HANDLE createNewWorkerThread(PtSudokuTable nst, int nbe, int maxTry)
 				/* On crée le thread */
 				p->thread = (HANDLE)_beginthreadex(NULL, 0, slvSudThreadProc, (void*)p, 0, NULL);
 				assert(p->thread);
+
+				/* On autorise le démarrage du thread */
+				assert(ReleaseSemaphore(p->canContinue, 1, NULL));
 #ifdef DEBOGUAGE
 				printf("createNewWorkerThread: new thread created\n");
 #endif
@@ -353,6 +356,10 @@ static void slvSud(ptThreadParam par)
 static unsigned int __stdcall slvSudThreadProc(void* vparam)
 {
 	threadParam* tparam = vparam;
+
+	/* On attend l'autorisation de démarrage pour être sûr que tparam->thread 
+	   est bien initiialisé */
+	assert(WaitForSingleObject(tparam->canContinue, INFINITE) == WAIT_OBJECT_0);
 
 	assert(tparam->thread);
 
@@ -468,8 +475,8 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 				case SOLUTION_FOUND:
 					eventProcessed = TRUE;
 					/* Une solution a été trouvée */
-					/* Renvoyer le résultat */
-					if ((*saf)(p->st, p->nbe, param)) {
+					/* Renvoyer le résultat, sauf si l'utilisateur n'en veut pas d'autre */
+					if (!terminationRequested && (*saf)(p->st, p->nbe, param)) {
 						/* Arrêt demandé */
 						terminationRequested = TRUE;
 					}
