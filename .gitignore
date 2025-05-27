@@ -6,6 +6,7 @@
 # ajouts personnels
 *.layout
 *.depend
+**/*.cache/**
 
 # User-specific files
 *.rsuser

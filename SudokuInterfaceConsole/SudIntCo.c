@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "SudSlvEn.h"
+#include <SudSlvEn.h>
 
 void printSudoku(PtSudokuTable st)
 {

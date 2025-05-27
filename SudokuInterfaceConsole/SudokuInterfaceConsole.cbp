@@ -12,14 +12,12 @@
 				<Option deps_output="../Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
 				<Option parameters="57640.sud" />
 				<Compiler>
 					<Add option="-Wall" />
 					<Add option="-g" />
 					<Add option="-D_DEBUG" />
 					<Add option="-D_CONSOLE" />
-					<Add directory="../SudokuSolver/" />
 				</Compiler>
 				<Linker>
 					<Add directory="../Debug/" />
@@ -32,12 +30,11 @@
 				<Option deps_output="../Release/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
+				<Option parameters="test.sud" />
 				<Compiler>
 					<Add option="-Wall" />
 					<Add option="-DNDEBUG" />
 					<Add option="-D_CONSOLE" />
-					<Add directory="../SudokuSolver/" />
 				</Compiler>
 				<Linker>
 					<Add directory="../Release/" />
@@ -46,7 +43,7 @@
 			</Target>
 		</Build>
 		<Linker>
-			<Add option="-lSudokuSolver" />
+			<Add option="-lSudSlvEn" />
 		</Linker>
 		<Unit filename="SudIntCo.c">
 			<Option compilerVar="CC" />
