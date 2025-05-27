@@ -40,8 +40,11 @@ int main(int argc, char* argv[])
 	if (argc <= 1) {
 		st = newSudokuTable(3, 2);
 		if (st) {
-			printf("Cr‚ation d'un Sudoku 3x2 r‚ussie !\n");
-
+#ifdef _WIN32
+			printf("Crâ€šation d'un Sudoku 3x2 râ€šussie !\n");
+#else
+			printf("CrÃ©ation d'un Sudoku 3x2 rÃ©ussie !\n");
+#endif
 			cr = insertSudokuSymbol(st, 5, 1, 0);
 			printf("insertSudokuSymbol(st, 5, 1, 0) = %u\n", cr);
 			cr = insertSudokuSymbol(st, 5, 1, 0);
@@ -78,39 +81,65 @@ int main(int argc, char* argv[])
 			symbole = getSudokuSymbol(st, 6, 5);
 			printf("getSudokuSymbol(st, 6, 5) = %d\n", symbole);
 			releaseSudokuTable(st);
-			printf("Sudoku 3x2 d‚truit !\n");
+#ifdef _WIN32
+			printf("Sudoku 3x2 dâ€štruit !\n");
+#else
+			printf("Sudoku 3x2 dÃ©truit !\n");
+#endif
 		}
 	}
 	else {
 		FILE* fs;
 		int h, l, i, j, s, cr;
+#ifdef _WIN32
 		errno_t fcr;
-
+#endif
 		if (argc > 2) {
 			if (!strncmp(argv[2], "--no-print", 11)) {
 				print = false;
 			}
 		}
 		printf("argv[1]=%s\n", argv[1]);
+#ifdef _WIN32
 		fcr = fopen_s(&fs, argv[1], "r");
+#else
+		fs = fopen(argv[1], "r");
+#endif
+#ifdef _WIN32
 		if (fcr) {
+#else
+		if (!fs) {
+#endif
 			printf("Erreur d'ouverture du fichier %s\n", argv[1]);
 			return 1;
 		}
 
+#ifdef _WIN32
 		fscanf_s(fs, "%u", &l);
 		fscanf_s(fs, "%u", &h);
+#else
+		fscanf(fs, "%u", &l);
+		fscanf(fs, "%u", &h);
+#endif
 		st = newSudokuTable(l, h);
 		if (st) {
-			printf("Cr‚ation d'un Sudoku %ux%u r‚ussie !\n",
+#ifdef _WIN32
+			printf("Crâ€šation d'un Sudoku %ux%u râ€šussie !\n",
+#else
+			printf("CrÃ©ation d'un Sudoku %ux%u rÃ©ussie !\n",
+#endif
 				st->largeur, st->hauteur);
 
 			for (i = 0; i < st->largeur * st->hauteur; i++)
 				for (j = 0; j < st->largeur * st->hauteur; j++) {
+#ifdef _WIN32
 					fscanf_s(fs, "%u", &s);
+#else
+					fscanf(fs, "%u", &s);
+#endif // _WIN32
 					cr = insertSudokuSymbol(st, s, i, j);
 					if (cr) {
-						/* Erreur à l'insertion */
+						/* Erreur Ã  l'insertion */
 						releaseSudokuTable(st);
 						return -1;
 					}
@@ -129,7 +158,11 @@ int main(int argc, char* argv[])
 			printf("Sudoku %ux%u",
 				st->largeur, st->hauteur);
 			releaseSudokuTable(st);
-			printf(" d‚truit !\n");
+#ifdef _WIN32
+			printf(" dâ€štruit !\n");
+#else
+			printf(" dÃ©truit !\n");
+#endif // _WIN32
 		}
 	}
 

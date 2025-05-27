@@ -5,11 +5,20 @@
 #include "LeakChk.h"
 #endif
 
+#ifdef _WIN32
 #if SUDOKUSOLVER_EXPORTS
 # define SUDOKU_SOLVER_DLLIMPORT __declspec (dllexport)
 #else /* Not BUILDING_DLL */
 # define SUDOKU_SOLVER_DLLIMPORT __declspec (dllimport)
 #endif /* Not BUILDING_DLL */
+#else
+#define __stdcall
+#if SUDOKUSOLVER_EXPORTS
+# define SUDOKU_SOLVER_DLLIMPORT __attribute__((visibility("default")))
+#else /* Not BUILDING_DLL */
+# define SUDOKU_SOLVER_DLLIMPORT
+#endif /* Not BUILDING_DLL */
+#endif // _WIN32
 
 #ifdef	__cplusplus
 extern "C" {
@@ -70,7 +79,7 @@ extern "C" {
 		 la résolution,
 	   param contient la valeur fournie par le programme appelant lors de l'appel de
 		   la fonction solveSudoku
-		
+
 		Valeur de retour : la fonction peut retourner 0 si elle souhaite poursuivre
 							la recherche de solution ou une valeur différente de 0
 							si la recherche doit s'arrêter là.
