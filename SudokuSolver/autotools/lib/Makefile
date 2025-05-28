@@ -139,6 +139,10 @@ AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+libSudSlvEn_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(libSudSlvEn_la_LDFLAGS) $(LDFLAGS) -o \
+	$@
 AM_V_P = $(am__v_P_$(V))
 am__v_P_ = $(am__v_P_$(AM_DEFAULT_VERBOSITY))
 am__v_P_0 = false
@@ -217,7 +221,7 @@ CPPFLAGS =
 CSCOPE = cscope
 CTAGS = ctags
 CYGPATH_W = echo
-DEFS = -DPACKAGE_NAME=\"SudSlvEn\" -DPACKAGE_TARNAME=\"sudslven\" -DPACKAGE_VERSION=\"1.0\" -DPACKAGE_STRING=\"SudSlvEn\ 1.0\" -DPACKAGE_BUGREPORT=\"cs.schoffit@free.fr\" -DPACKAGE_URL=\"\" -DPACKAGE=\"sudslven\" -DVERSION=\"1.0\" -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\"
+DEFS = -DPACKAGE_NAME=\"SudSlvEn\" -DPACKAGE_TARNAME=\"sudslven\" -DPACKAGE_VERSION=\"1.1\" -DPACKAGE_STRING=\"SudSlvEn\ 1.1\" -DPACKAGE_BUGREPORT=\"cs.schoffit@free.fr\" -DPACKAGE_URL=\"\" -DPACKAGE=\"sudslven\" -DVERSION=\"1.1\" -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\"
 DEPDIR = .deps
 DLLTOOL = dlltool
 DSYMUTIL = 
@@ -257,17 +261,17 @@ OTOOL64 =
 PACKAGE = sudslven
 PACKAGE_BUGREPORT = cs.schoffit@free.fr
 PACKAGE_NAME = SudSlvEn
-PACKAGE_STRING = SudSlvEn 1.0
+PACKAGE_STRING = SudSlvEn 1.1
 PACKAGE_TARNAME = sudslven
 PACKAGE_URL = 
-PACKAGE_VERSION = 1.0
+PACKAGE_VERSION = 1.1
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SED = /usr/bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
-VERSION = 1.0
+VERSION = 1.1
 abs_builddir = /home/nounours/projects/Sudoku/SudokuSolver/autotools/lib
 abs_srcdir = /home/nounours/projects/Sudoku/SudokuSolver/autotools/lib
 abs_top_builddir = /home/nounours/projects/Sudoku/SudokuSolver/autotools
@@ -325,6 +329,7 @@ top_builddir = ..
 top_srcdir = ..
 lib_LTLIBRARIES = libSudSlvEn.la
 libSudSlvEn_la_SOURCES = SudSlvEn.c SudSlvEn.h
+libSudSlvEn_la_LDFLAGS = -version-info 0:1:0
 include_HEADERS = SudSlvEn.h
 all: all-am
 
@@ -394,7 +399,7 @@ clean-libLTLIBRARIES:
 	$(am__rm_f) $${locs}
 
 libSudSlvEn.la: $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_DEPENDENCIES) $(EXTRA_libSudSlvEn_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_LIBADD) $(LIBS)
+	$(AM_V_CCLD)$(libSudSlvEn_la_LINK) -rpath $(libdir) $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

@@ -1,4 +1,4 @@
-AC_INIT([SudSlvEn], [1.0], [cs.schoffit@free.fr])
+AC_INIT([SudSlvEn], [1.1], [cs.schoffit@free.fr])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])

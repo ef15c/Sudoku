@@ -139,6 +139,10 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+libSudSlvEn_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(libSudSlvEn_la_LDFLAGS) $(LDFLAGS) -o \
+	$@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -325,6 +329,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libSudSlvEn.la
 libSudSlvEn_la_SOURCES = SudSlvEn.c SudSlvEn.h
+libSudSlvEn_la_LDFLAGS = -version-info 0:1:0
 include_HEADERS = SudSlvEn.h
 all: all-am
 
@@ -394,7 +399,7 @@ clean-libLTLIBRARIES:
 	$(am__rm_f) $${locs}
 
 libSudSlvEn.la: $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_DEPENDENCIES) $(EXTRA_libSudSlvEn_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_LIBADD) $(LIBS)
+	$(AM_V_CCLD)$(libSudSlvEn_la_LINK) -rpath $(libdir) $(libSudSlvEn_la_OBJECTS) $(libSudSlvEn_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
