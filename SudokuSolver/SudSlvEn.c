@@ -196,6 +196,7 @@ typedef enum {
 	TERMINATED,
 	RUNNING,
 	SOLUTION_FOUND,
+	CLEANING,
 } workerState;
 
 typedef struct THREAD_PARAM {
@@ -447,7 +448,7 @@ static void *slvSudThreadProc(void* vparam)
 	/* La fonction vient de se terminer */
 	/* Nettoyage avant le retour */
 
-	tparam->state = TERMINATED;
+	tparam->state = CLEANING;
 
 	releaseSudokuTable(tparam->st);
 	tparam->st = NULL;
@@ -596,6 +597,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 			if (thread) {
 				switch (p->state) {
                 case RUNNING:
+                case TERMINATED:
                     break;
 				case SOLUTION_FOUND:
 					eventProcessed = TRUE;
@@ -614,7 +616,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 #endif
 
 					break;
-				case TERMINATED:
+				case CLEANING:
 					eventProcessed = TRUE;
 					/* On permet au processus de travail de continuer sa tâche */
 					if (p->maxTry > 0 && p->nbe > p->maxTry) {
@@ -631,7 +633,7 @@ SUDOKU_SOLVER_DLLIMPORT int __stdcall solveSudokuMaxTry(PtSudokuTable st,
 #else
 					assert(pthread_join(thread, NULL) == 0);
 #endif
-
+                    p->state = TERMINATED;
 					break;
 				}
 			}

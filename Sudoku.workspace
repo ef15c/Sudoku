@@ -2,6 +2,8 @@
 <CodeBlocks_workspace_file>
 	<Workspace title="Workspace">
 		<Project filename="SudokuSolver/SudokuSolver.cbp" />
-		<Project filename="SudokuInterfaceConsole/SudokuInterfaceConsole.cbp" />
+		<Project filename="SudokuInterfaceConsole/SudokuInterfaceConsole.cbp">
+			<Depends filename="SudokuSolver/SudokuSolver.cbp" />
+		</Project>
 	</Workspace>
 </CodeBlocks_workspace_file>

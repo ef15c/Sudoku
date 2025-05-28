@@ -43,7 +43,7 @@
 			</Target>
 		</Build>
 		<Linker>
-			<Add option="-lSudSlvEn" />
+			<Add option="-lSudokuSolver" />
 		</Linker>
 		<Unit filename="SudIntCo.c">
 			<Option compilerVar="CC" />
