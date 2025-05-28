@@ -221,7 +221,7 @@ CPPFLAGS =
 CSCOPE = cscope
 CTAGS = ctags
 CYGPATH_W = echo
-DEFS = -DPACKAGE_NAME=\"SudSlvEn\" -DPACKAGE_TARNAME=\"sudslven\" -DPACKAGE_VERSION=\"1.1\" -DPACKAGE_STRING=\"SudSlvEn\ 1.1\" -DPACKAGE_BUGREPORT=\"cs.schoffit@free.fr\" -DPACKAGE_URL=\"\" -DPACKAGE=\"sudslven\" -DVERSION=\"1.1\" -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\"
+DEFS = -DPACKAGE_NAME=\"SudSlvEn\" -DPACKAGE_TARNAME=\"sudslven\" -DPACKAGE_VERSION=\"1.2\" -DPACKAGE_STRING=\"SudSlvEn\ 1.2\" -DPACKAGE_BUGREPORT=\"cs.schoffit@free.fr\" -DPACKAGE_URL=\"\" -DPACKAGE=\"sudslven\" -DVERSION=\"1.2\" -DHAVE_STDIO_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_STRINGS_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_UNISTD_H=1 -DSTDC_HEADERS=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\"
 DEPDIR = .deps
 DLLTOOL = dlltool
 DSYMUTIL = 
@@ -261,17 +261,17 @@ OTOOL64 =
 PACKAGE = sudslven
 PACKAGE_BUGREPORT = cs.schoffit@free.fr
 PACKAGE_NAME = SudSlvEn
-PACKAGE_STRING = SudSlvEn 1.1
+PACKAGE_STRING = SudSlvEn 1.2
 PACKAGE_TARNAME = sudslven
 PACKAGE_URL = 
-PACKAGE_VERSION = 1.1
+PACKAGE_VERSION = 1.2
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SED = /usr/bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
-VERSION = 1.1
+VERSION = 1.2
 abs_builddir = /home/nounours/projects/Sudoku/SudokuSolver/autotools/lib
 abs_srcdir = /home/nounours/projects/Sudoku/SudokuSolver/autotools/lib
 abs_top_builddir = /home/nounours/projects/Sudoku/SudokuSolver/autotools
@@ -329,7 +329,7 @@ top_builddir = ..
 top_srcdir = ..
 lib_LTLIBRARIES = libSudSlvEn.la
 libSudSlvEn_la_SOURCES = SudSlvEn.c SudSlvEn.h
-libSudSlvEn_la_LDFLAGS = -version-info 0:1:0
+libSudSlvEn_la_LDFLAGS = -version-info 0:2:0
 include_HEADERS = SudSlvEn.h
 all: all-am
 

@@ -8,7 +8,7 @@
 dlname='libSudSlvEn.so.0'
 
 # Names of this library.
-library_names='libSudSlvEn.so.0.0.1 libSudSlvEn.so.0 libSudSlvEn.so'
+library_names='libSudSlvEn.so.0.0.2 libSudSlvEn.so.0 libSudSlvEn.so'
 
 # The name of the static archive.
 old_library=''
@@ -25,7 +25,7 @@ weak_library_names=''
 # Version information for libSudSlvEn.
 current=0
 age=0
-revision=1
+revision=2
 
 # Is this an already installed library?
 installed=no
